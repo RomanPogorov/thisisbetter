@@ -1,29 +1,31 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Frame Descriptions</title>
     <style>
         body { font-family: sans-serif; }
-        .frame { margin-bottom: 20px; }
-        .frame-name { font-weight: bold; margin-bottom: 5px; }
-        input { width: 100%; margin-bottom: 10px; }
-        button { margin-right: 10px; }
+        .frame { margin-bottom: 20px; display: flex; align-items: center; }
+        .frame img { width: 100px; height: 100px; margin-right: 10px; } /* Размеры можно адаптировать */
+        .frame input { flex-grow: 1; }
     </style>
 </head>
 <body>
-    <div id="app">Загрузка данных...</div>
+    <div id="app">Загрузка...</div>
 
     <script>
-        onmessage = event => {
+        onmessage = (event) => {
             const msg = event.data.pluginMessage;
             if (msg.type === 'init') {
-                const content = msg.frames.map(frame => `
+                const framesHtml = msg.frames.map(frame => `
                     <div class="frame">
-                        <div class="frame-name">${frame.name}</div>
-                        <input type="text" id="desc-${frame.id}" placeholder="Описание"" />
+                        <img src="${frame.base64}" alt="${frame.name}">
+                        <input type="text" placeholder="Описание для ${frame.name}" id="desc-${frame.id}">
                     </div>
                 `).join('');
-                document.getElementById('app').innerHTML = content + '<button id="send">Отправить</button><button id="cancel">Отменить</button>';
+
+                document.getElementById('app').innerHTML = framesHtml + '<button id="send">Отправить</button> <button id="cancel">Отменить</button>';
 
                 document.getElementById('send').onclick = () => {
                     const descriptions = msg.frames.map(frame => ({
@@ -32,6 +34,7 @@
                     }));
                     parent.postMessage({ pluginMessage: { type: 'send-descriptions', descriptions } }, '*');
                 };
+
                 document.getElementById('cancel').onclick = () => {
                     parent.postMessage({ pluginMessage: { type: 'cancel' } }, '*');
                 };
