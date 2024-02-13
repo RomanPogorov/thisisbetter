@@ -1,44 +1,64 @@
 const express = require('express');
 const bodyParser = require('body-parser');
 const axios = require('axios');
-const cors = require('cors'); // Импортируем пакет cors
+const FormData = require('form-data');
+const cors = require('cors');
 
 const app = express();
 const port = 3000;
 
-// Замените на токен вашего бота и ID вашей группы
-const botToken = '6897510486:AAFCzdJ7IM-Q0fUe1tNq93MKD95CYU-80QA';
-const chatId = '-1002046538593';
+const botToken = '6897510486:AAFCzdJ7IM-Q0fUe1tNq93MKD95CYU-80QA'; // Замените на токен вашего бота
+const chatId = '-1002046538593'; // Замените на ID вашей группы
 
 app.use(bodyParser.json());
+app.use(cors());
 
-// Используем cors для разрешения CORS запросов
-app.use(cors()); // Это разрешит все CORS запросы
-
-app.post('/send-data', (req, res) => {
-    console.log('Received request to /send-data:', req.body); // Выводим тело запроса в консоль
+app.post('/send-data', async (req, res) => {
+    console.log('Received request to /send-data:', req.body);
     const { images, descriptions } = req.body;
 
     // Отправка изображений в группу
-    images.forEach(image => {
-        sendImageToGroup(image, chatId, botToken);
-    });
+    for (let i = 0; i < images.length; i++) {
+        const image = images[i];
+        const imageData = await getImageData(image); // Получаем данные изображения
+
+        if (imageData) {
+            const caption = descriptions[i] ? descriptions[i].description : 'No description';
+            await sendImageToGroup(imageData, caption);
+        }
+    }
 
     // Создание опроса
     const options = descriptions.map(desc => desc.description);
-    createPollInGroup('Which image is better?', options, chatId, botToken);
+    createPollInGroup('Which image is better?', options);
 
     res.send('Data received and processed successfully!');
 });
 
-async function sendImageToGroup(imageUrl, chatId, botToken) {
+async function getImageData(imageUrl) {
     try {
-        const response = await axios.post(`https://api.telegram.org/bot${botToken}/sendPhoto`, {
-            chat_id: chatId,
-            photo: imageUrl,
-            caption: 'Choose the best one!'
+        const response = await axios.get(imageUrl, { responseType: 'arraybuffer' });
+        return Buffer.from(response.data, 'binary'); // Преобразуем данные изображения в буфер
+    } catch (error) {
+        console.error('Error fetching image:', error);
+        return null;
+    }
+}
+
+async function sendImageToGroup(imageData, caption) {
+    try {
+        const form = new FormData();
+        form.append('chat_id', chatId);
+        form.append('photo', imageData, { filename: 'image.jpg' }); // Отправляем изображение в виде файла
+        form.append('caption', caption);
+
+        const response = await axios.post(`https://api.telegram.org/bot${botToken}/sendPhoto`, form, {
+            headers: {
+                ...form.getHeaders(), // Получаем заголовки формы
+            },
         });
-        if(response.data.ok) {
+
+        if (response.data.ok) {
             console.log('Image sent to group:', response.data);
         } else {
             console.error('Telegram API returned an error:', response.data.description);
@@ -48,14 +68,15 @@ async function sendImageToGroup(imageUrl, chatId, botToken) {
     }
 }
 
-async function createPollInGroup(pollQuestion, options, chatId, botToken) {
+async function createPollInGroup(pollQuestion, options) {
     try {
         const response = await axios.post(`https://api.telegram.org/bot${botToken}/sendPoll`, {
             chat_id: chatId,
             question: pollQuestion,
             options: JSON.stringify(options),
         });
-        if(response.data.ok) {
+
+        if (response.data.ok) {
             console.log('Poll created in group:', response.data);
         } else {
             console.error('Telegram API returned an error:', response.data.description);
