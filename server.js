@@ -17,16 +17,12 @@ app.post('/send-data', async (req, res) => {
     console.log('Received request to /send-data:', req.body);
     const { images, descriptions } = req.body;
 
-    // Отправка изображений в группу
-    for (let i = 0; i < images.length; i++) {
-        const image = images[i];
-        const imageData = await getImageData(image); // Получаем данные изображения
+    // Получение данных изображений
+    const imageDataArray = await Promise.all(images.map(getImageData));
 
-        if (imageData) {
-            const caption = descriptions[i] ? descriptions[i].description : 'No description';
-            await sendImageToGroup(imageData, caption);
-        }
-    }
+    // Отправка изображений в группу
+    const captions = descriptions.map(desc => desc ? desc.description : 'No description');
+    await sendImagesToGroup(imageDataArray, captions);
 
     // Создание опроса
     const options = descriptions.map(desc => desc.description);
@@ -45,26 +41,38 @@ async function getImageData(imageUrl) {
     }
 }
 
-async function sendImageToGroup(imageData, caption) {
+async function sendImagesToGroup(images, captions) {
     try {
+        const media = images.map((image, index) => {
+            return {
+                type: 'photo',
+                media: `attach://image${index}`, // Передаем идентификаторы изображений
+                caption: captions[index]
+            };
+        });
+
         const form = new FormData();
         form.append('chat_id', chatId);
-        form.append('photo', imageData, { filename: 'image.jpg' }); // Отправляем изображение в виде файла
-        form.append('caption', caption);
 
-        const response = await axios.post(`https://api.telegram.org/bot${botToken}/sendPhoto`, form, {
+        images.forEach((image, index) => {
+            form.append(`image${index}`, image, { filename: `image${index}.jpg` }); // Прикрепляем изображения
+        });
+
+        form.append('media', JSON.stringify(media));
+
+        const response = await axios.post(`https://api.telegram.org/bot${botToken}/sendMediaGroup`, form, {
             headers: {
-                ...form.getHeaders(), // Получаем заголовки формы
+                ...form.getHeaders(),
             },
         });
 
-        if (response.data.ok) {
-            console.log('Image sent to group:', response.data);
+        if (response && response.data && response.data.ok) {
+            console.log('Images sent to group:', response.data);
         } else {
-            console.error('Telegram API returned an error:', response.data.description);
+            console.error('Telegram API returned an error:', response ? response.data.description : 'Unknown error');
         }
     } catch (error) {
-        console.error('Error sending image to group:', error.response ? error.response.data : error);
+        console.error('Error sending images to group:', error.response ? error.response.data : error);
     }
 }
 
