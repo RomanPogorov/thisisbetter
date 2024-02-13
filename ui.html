@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Frame Descriptions</title>
+    <style>
+        body { font-family: sans-serif; }
+        .frame { margin-bottom: 20px; }
+        .frame-name { font-weight: bold; margin-bottom: 5px; }
+        input { width: 100%; margin-bottom: 10px; }
+        button { margin-right: 10px; }
+    </style>
+</head>
+<body>
+    <div id="app">Загрузка данных...</div>
+
+    <script>
+        onmessage = event => {
+            const msg = event.data.pluginMessage;
+            if (msg.type === 'init') {
+                const content = msg.frames.map(frame => `
+                    <div class="frame">
+                        <div class="frame-name">${frame.name}</div>
+                        <input type="text" id="desc-${frame.id}" placeholder="Описание"" />
+                    </div>
+                `).join('');
+                document.getElementById('app').innerHTML = content + '<button id="send">Отправить</button><button id="cancel">Отменить</button>';
+
+                document.getElementById('send').onclick = () => {
+                    const descriptions = msg.frames.map(frame => ({
+                        id: frame.id,
+                        description: document.getElementById(`desc-${frame.id}`).value
+                    }));
+                    parent.postMessage({ pluginMessage: { type: 'send-descriptions', descriptions } }, '*');
+                };
+                document.getElementById('cancel').onclick = () => {
+                    parent.postMessage({ pluginMessage: { type: 'cancel' } }, '*');
+                };
+            }
+        };
+    </script>
+</body>
+</html>
