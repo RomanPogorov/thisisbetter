@@ -11,7 +11,8 @@
   "ui": "ui.html",
   "networkAccess": {
     "allowedDomains": [
-      "none"
-    ]
+      "*"
+    ],
+    "reasoning": "Allowing all domains for plugin development purposes."
   }
 }

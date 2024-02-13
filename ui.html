@@ -3,15 +3,16 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Frame Descriptions</title>
+    <title>Which is Better</title>
     <style>
         body { font-family: sans-serif; }
         .frame { margin-bottom: 20px; display: flex; align-items: center; }
-        .frame img { width: 100px; height: 100px; margin-right: 10px; } /* Размеры можно адаптировать */
+        .frame img { width: 100px; height: 100px; margin-right: 10px; border: 1px solid #ccc; } /* Обводка картинок */
         .frame input { flex-grow: 1; }
     </style>
 </head>
 <body>
+    <h1>Which is Better</h1>
     <div id="app">Загрузка...</div>
 
     <script>
@@ -27,12 +28,27 @@
 
                 document.getElementById('app').innerHTML = framesHtml + '<button id="send">Отправить</button> <button id="cancel">Отменить</button>';
 
-                document.getElementById('send').onclick = () => {
+                document.getElementById('send').onclick = async () => {
                     const descriptions = msg.frames.map(frame => ({
                         id: frame.id,
                         description: document.getElementById(`desc-${frame.id}`).value
                     }));
-                    parent.postMessage({ pluginMessage: { type: 'send-descriptions', descriptions } }, '*');
+
+                    // Отправляем данные на сервер
+                    const response = await fetch('http://localhost:3000/send-data', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({ images: msg.frames.map(frame => frame.base64), descriptions })
+                    });
+
+                    if (response.ok) {
+                        console.log('Data sent successfully');
+                        parent.postMessage({ pluginMessage: { type: 'send-descriptions', descriptions } }, '*');
+                    } else {
+                        console.error('Error sending data:', response.statusText);
+                    }
                 };
 
                 document.getElementById('cancel').onclick = () => {
