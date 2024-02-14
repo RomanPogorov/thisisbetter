@@ -1,99 +1,45 @@
-const express = require('express');
-const bodyParser = require('body-parser');
-const axios = require('axios');
-const FormData = require('form-data');
-const cors = require('cors');
+const express = require('express'); // Подключаем библиотеку Express.js
+const bodyParser = require('body-parser'); // Подключаем middleware для парсинга JSON
+const cors = require('cors'); // Подключаем middleware для обработки CORS
 
-const app = express();
-const port = 3000;
+// Импортируем функции для работы с Telegram Bot из отдельного файла
+const { getImageData, sendImagesToGroup, createPollInGroup } = require('./telegramBot');
 
-const botToken = '6897510486:AAFCzdJ7IM-Q0fUe1tNq93MKD95CYU-80QA'; // Замените на токен вашего бота
-const chatId = '-1002046538593'; // Замените на ID вашей группы
+const app = express(); // Создаем экземпляр приложения Express
+const port = 3000; // Указываем порт, на котором будет работать сервер
 
-app.use(bodyParser.json());
-app.use(cors());
+app.use(bodyParser.json()); // Используем middleware для парсинга JSON в телах запросов
+app.use(cors()); // Используем middleware для обработки CORS (Cross-Origin Resource Sharing)
 
+// Обрабатываем POST запрос на эндпоинт '/send-data'
 app.post('/send-data', async (req, res) => {
-    console.log('Received request to /send-data:', req.body);
-    const { images, descriptions } = req.body;
+    const { images, descriptions } = req.body; // Извлекаем из тела запроса массивы изображений и описаний
+    console.log('Received request to /send-data:', req.body); // Выводим в консоль полученные данные
 
-    // Получение данных изображений
-    const imageDataArray = await Promise.all(images.map(getImageData));
-
-    // Отправка изображений в группу
-    const captions = descriptions.map(desc => desc ? desc.description : 'No description');
-    await sendImagesToGroup(imageDataArray, captions);
-
-    // Создание опроса
-    const options = descriptions.map(desc => desc.description);
-    createPollInGroup('Which image is better?', options);
-
-    res.send('Data received and processed successfully!');
+    try {
+        // Получаем данные изображений и описаний асинхронно и параллельно
+        const imageDataArray = await Promise.all(images.map(getImageData));
+        
+        // Формируем массив описаний, если описание отсутствует, используем 'No description'
+        const captions = descriptions.map(desc => desc ? desc.description : 'No description');
+        
+        // Отправляем изображения в группу Telegram
+        await sendImagesToGroup(imageDataArray, captions);
+        
+        // Создаем опрос в группе Telegram
+        const options = descriptions.map(desc => desc.description);
+        await createPollInGroup('Which image is better?', options);
+        
+        // Отправляем успешный ответ об успешной обработке данных
+        res.send('Data received and processed successfully!');
+    } catch (error) {
+        // Если возникла ошибка, выводим ее в консоль и отправляем клиенту ответ с кодом ошибки 500
+        console.error('Error processing request:', error);
+        res.status(500).send('An error occurred while processing your request.');
+    }
 });
 
-async function getImageData(imageUrl) {
-    try {
-        const response = await axios.get(imageUrl, { responseType: 'arraybuffer' });
-        return Buffer.from(response.data, 'binary'); // Преобразуем данные изображения в буфер
-    } catch (error) {
-        console.error('Error fetching image:', error);
-        return null;
-    }
-}
-
-async function sendImagesToGroup(images, captions) {
-    try {
-        const media = images.map((image, index) => {
-            return {
-                type: 'photo',
-                media: `attach://image${index}`, // Передаем идентификаторы изображений
-                caption: captions[index]
-            };
-        });
-
-        const form = new FormData();
-        form.append('chat_id', chatId);
-
-        images.forEach((image, index) => {
-            form.append(`image${index}`, image, { filename: `image${index}.jpg` }); // Прикрепляем изображения
-        });
-
-        form.append('media', JSON.stringify(media));
-
-        const response = await axios.post(`https://api.telegram.org/bot${botToken}/sendMediaGroup`, form, {
-            headers: {
-                ...form.getHeaders(),
-            },
-        });
-
-        if (response && response.data && response.data.ok) {
-            console.log('Images sent to group:', response.data);
-        } else {
-            console.error('Telegram API returned an error:', response ? response.data.description : 'Unknown error');
-        }
-    } catch (error) {
-        console.error('Error sending images to group:', error.response ? error.response.data : error);
-    }
-}
-
-async function createPollInGroup(pollQuestion, options) {
-    try {
-        const response = await axios.post(`https://api.telegram.org/bot${botToken}/sendPoll`, {
-            chat_id: chatId,
-            question: pollQuestion,
-            options: JSON.stringify(options),
-        });
-
-        if (response.data.ok) {
-            console.log('Poll created in group:', response.data);
-        } else {
-            console.error('Telegram API returned an error:', response.data.description);
-        }
-    } catch (error) {
-        console.error('Error creating poll in group:', error.response ? error.response.data : error);
-    }
-}
-
+// Запускаем сервер на указанном порту
 app.listen(port, () => {
     console.log(`Server running at http://localhost:${port}`);
 });
