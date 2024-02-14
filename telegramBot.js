@@ -3,8 +3,8 @@ const axios = require('axios');
 const FormData = require('form-data');
 
 // Объявление констант: токен бота и ID чата, используемых для взаимодействия с API Telegram.
-const botToken = '6897510486:AAFCzdJ7IM-Q0fUe1tNq93MKD95CYU-80QA'; // Замените на ваш токен
-const chatId = '-1002046538593'; // Замените на ваш ID чата
+const botToken = ''; // Замените на ваш токен
+const chatId = ''; // Замените на ваш ID чата
 
 // Функция для получения данных изображения по URL. Использует бинарный ответ для последующего преобразования в буфер.
 async function getImageData(imageUrl) {
